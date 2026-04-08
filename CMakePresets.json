@@ -1,0 +1,110 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 30,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "base-windows",
+      "hidden": true,
+      "generator": "MinGW Makefiles",
+      "binaryDir": "${sourceDir}/build-${presetName}",
+      "cacheVariables": {
+        "CMAKE_CXX_COMPILER": "C:\\mingw32-msvcrt\\bin\\g++.exe",
+        "CMAKE_C_COMPILER": "C:\\mingw32-msvcrt\\bin\\gcc.exe",
+        "CMAKE_VERBOSE_MAKEFILE": "OFF",
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}"
+      },
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      }
+    },
+    {
+      "name": "base-linux",
+      "hidden": true,
+      "generator": "Unix Makefiles",
+      "binaryDir": "${sourceDir}/build-${presetName}",
+      "cacheVariables": {
+        "CMAKE_CXX_COMPILER": "g++-12",
+        "CMAKE_C_COMPILER": "gcc-12",
+        "CMAKE_VERBOSE_MAKEFILE": "OFF",
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}"
+      },
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Linux"
+      }
+    },
+    {
+      "name": "release-linux",
+      "displayName": "release-linux",
+      "inherits": ["base-linux"],
+      "description": "Configurar com otimizações",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    {
+      "name": "debug-linux",
+      "displayName": "debug-linux",
+      "inherits": ["base-linux"],
+      "description": "Configurar com opções de debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
+    },
+    {
+      "name": "release-windows",
+      "displayName": "release-windows",
+      "inherits": ["base-windows"],
+      "description": "Configurar com otimizações",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    {
+      "name": "debug-windows",
+      "displayName": "debug-windows",
+      "inherits": ["base-windows"],
+      "description": "Configurar com opções de debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "release-linux",
+      "displayName": "release-linux",
+      "description": "Build com otimizações",
+      "configurePreset": "release-linux",
+      "jobs": 32
+    },
+    {
+      "name": "debug-linux",
+      "displayName": "debug-linux",
+      "description": "Build com opções de debug",
+      "configurePreset": "debug-linux",
+      "jobs": 32
+    },
+    {
+      "name": "release-windows",
+      "displayName": "release-windows",
+      "description": "Build com otimizações",
+      "configurePreset": "release-windows",
+      "jobs": 32
+    },
+    {
+      "name": "debug-windows",
+      "displayName": "debug-windows",
+      "description": "Build com opções de debug",
+      "configurePreset": "debug-windows",
+      "jobs": 32
+    }
+  ]
+}
