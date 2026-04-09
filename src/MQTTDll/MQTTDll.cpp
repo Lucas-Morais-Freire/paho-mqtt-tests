@@ -2,7 +2,7 @@
 
 #include <stdexcept>
 
-MQTTDll::MQTTDll() noexcept {
+void MQTTDll::load() noexcept {
   hDll = LoadLibrary("libpaho-mqtt3a.dll");
   if (hDll == NULL) return;
 
@@ -38,4 +38,7 @@ MQTTDll::MQTTDll() noexcept {
 
   fptr_free = (void (*)(void *))(void *)
     GetProcAddress(hDll, "MQTTAsync_free");
+
+  fptr_strerror = (const char *(*)(int))(void *)
+    GetProcAddress(hDll, "MQTTAsync_strerror");
 }

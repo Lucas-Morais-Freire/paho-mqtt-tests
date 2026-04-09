@@ -7,22 +7,25 @@
 class MQTTDll {
 private:
   // Ponteiros para as funções
-  int  (*fptr_create)(MQTTAsync*, const char*, const char*, int, void*) = NULL;
-  void (*fptr_destroy)(MQTTAsync *) = NULL;
-  int  (*fptr_connect)(MQTTAsync, const MQTTAsync_connectOptions *) = NULL;
-  int  (*fptr_isConnected)(MQTTAsync) = NULL;
-  int  (*fptr_disconnect)(MQTTAsync, const MQTTAsync_disconnectOptions *) = NULL;
-  int  (*fptr_setCallbacks)(MQTTAsync, void *, MQTTAsync_connectionLost *, MQTTAsync_messageArrived *, MQTTAsync_deliveryComplete *) = NULL;
-  int  (*fptr_subscribe)(MQTTAsync, const char *, int, MQTTAsync_responseOptions *) = NULL;
-  int  (*fptr_unsubscribe)(MQTTAsync, const char *, MQTTAsync_responseOptions *) = NULL;
-  int  (*fptr_sendMessage)(MQTTAsync, const char *, const MQTTAsync_message *, MQTTAsync_responseOptions *) = NULL;
-  void (*fptr_freeMessage)(MQTTAsync_message **) = NULL;
-  void (*fptr_free)(void *) = NULL;
+  int         (*fptr_create)      (MQTTAsync*, const char*, const char*, int, void*) = NULL;
+  void        (*fptr_destroy)     (MQTTAsync *) = NULL;
+  int         (*fptr_connect)     (MQTTAsync, const MQTTAsync_connectOptions *) = NULL;
+  int         (*fptr_isConnected) (MQTTAsync) = NULL;
+  int         (*fptr_disconnect)  (MQTTAsync, const MQTTAsync_disconnectOptions *) = NULL;
+  int         (*fptr_setCallbacks)(MQTTAsync, void *, MQTTAsync_connectionLost *, MQTTAsync_messageArrived *, MQTTAsync_deliveryComplete *) = NULL;
+  int         (*fptr_subscribe)   (MQTTAsync, const char *, int, MQTTAsync_responseOptions *) = NULL;
+  int         (*fptr_unsubscribe) (MQTTAsync, const char *, MQTTAsync_responseOptions *) = NULL;
+  int         (*fptr_sendMessage) (MQTTAsync, const char *, const MQTTAsync_message *, MQTTAsync_responseOptions *) = NULL;
+  void        (*fptr_freeMessage) (MQTTAsync_message **) = NULL;
+  void        (*fptr_free)        (void *) = NULL;
+  const char *(*fptr_strerror)    (int) = NULL;
 
   HINSTANCE hDll = NULL;
 
 public:
-  explicit MQTTDll() noexcept;
+  explicit MQTTDll() noexcept = default;
+
+  void load() noexcept;
 
   inline bool loaded() const noexcept { return hDll != NULL; }
 
@@ -70,4 +73,7 @@ public:
     return fptr_free(ptr);
   }
 
+  inline const char *strerror(int code) const noexcept {
+    return fptr_strerror(code);
+  }
 };

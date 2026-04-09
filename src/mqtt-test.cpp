@@ -24,6 +24,19 @@ void onConnectFailure(void *, MQTTAsync_failureData *) {
 }
 
 
+class Subscriber {
+private:
+  MQTTAsync client = NULL;
+
+  bool subscribing = false;
+  std::condition_variable subscribing_cv;
+  std::mutex subscribing_mtx;
+
+public:
+  explicit Subscriber(MQTTAsync client) noexcept : client(client) {}
+
+  void subc
+};
 
 void onSubscribeSuccess(void *, MQTTAsync_successData *) {
   
@@ -59,7 +72,7 @@ int main() {
   connect_opts.keepAliveInterval = 20;
   connect_opts.cleansession = 1;
   connect_opts.connectTimeout = 10;
-  connect_opts.retryInterval = 1;
+  connect_opts.retryInterval = 3;
   connect_opts.onSuccess = onConnectSuccess;
   connect_opts.onFailure = onConnectFailure;
   mqttdll.setCallbacks(client, NULL, NULL, onMessageArrived, NULL);
