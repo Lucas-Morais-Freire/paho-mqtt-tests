@@ -9,7 +9,7 @@ void MQTTDll::load() noexcept {
   fptr_create = (int (*)(MQTTAsync *, const char*, const char*, int, void*))(void *)
     GetProcAddress(hDll, "MQTTAsync_create");
 
-  fptr_destroy = (void (*)(MQTTAsync *))(void *)
+  fptr_destroy = (void (*)(MQTTAsync *))(void*)
     GetProcAddress(hDll, "MQTTAsync_destroy");
 
   fptr_connect = (int (*)(MQTTAsync, const MQTTAsync_connectOptions *))(void *)
@@ -26,6 +26,9 @@ void MQTTDll::load() noexcept {
 
   fptr_subscribe = (int (*)(MQTTAsync, const char *, int, MQTTAsync_responseOptions *))(void *)
     GetProcAddress(hDll, "MQTTAsync_subscribe");
+
+  fptr_subscribeMany = (int (*)(MQTTAsync, int, char *const *, const int *, MQTTAsync_responseOptions *))(void *)
+    GetProcAddress(hDll, "MQTTAsync_subscribeMany");;
 
   fptr_unsubscribe = (int (*)(MQTTAsync, const char *, MQTTAsync_responseOptions *))(void *)
     GetProcAddress(hDll, "MQTTAsync_unsubscribe");
