@@ -5,11 +5,13 @@
 #include <string>
 #include <vector>
 #include <memory>
+#include <unordered_map>
+#include <windows.h>
 
 class MQTTClient {
 private:
   // --- lib
-  inline static std::mutex _dll_mtx;
+  static std::mutex _dll_mtx;
   static MQTTDll _dll;
 
   // --- Classe que define o contexto para operações MQTT
@@ -17,10 +19,10 @@ private:
   protected:
     bool _res = false;                      /** @brief Resultado da operação */
     bool _finalizada = false;               /** @brief Define se a operação foi finalizada */
-    const std::string &_broker_uri;
+    MQTTClient &_client;
     std::condition_variable _finalizada_cv;
     std::mutex _finalizada_mtx;
-    explicit Operacao(const std::string &broker_uri) noexcept : _broker_uri(broker_uri) {}
+    explicit Operacao(MQTTClient &client) noexcept : _client(client) {}
 
   public:
     inline bool resultado() { return _res; };
@@ -33,7 +35,8 @@ private:
   public:
     static void falha(void *op, MQTTAsync_failureData *res);
     static void sucesso(void *op, MQTTAsync_successData *res);
-    explicit Conexao(const std::string &broker_uri) noexcept : Operacao(broker_uri) {}
+    explicit Conexao(MQTTClient &client) noexcept : Operacao(client) {}
+    inline MQTTClient &getClient() { return _client; }
   };
   
   // --- Dados da conexão
@@ -41,29 +44,41 @@ private:
   static const int _CLEANSESSION = 1;        // Caso seja `1`, toda nova conexão iniciará com uma sessão limpa.
   static const int _CONNECT_TOUT = 10;       // Timeout de conexão.
   static const int _RETRY_INTERVAL = 3;      // Caso uma mensagem seja enviada e o PUBACK ou PUBREC seja reconhecido.
-  MQTTAsync _client;
+  MQTTAsync _client = NULL;
   std::string _broker_uri;
   std::string _client_id;
   Conexao _conexao;
   std::mutex _conexao_mtx;
-  static void conexaoPerdida(void* client, char* cause);
-  static int mensagemRecebidaIgnorar(void* op, char* topico, int topico_sz, MQTTAsync_message* msg);
-
+  bool _primeira_conexao = true;
+  static void conexaoPerdida(void* op, char* cause);
+  
   // --- Operação de inscrição
-  struct Subscribe : public Operacao {
+  std::unordered_map<std::string, MQTTAsync_messageArrived *> _callback_map;
+  SRWLOCK _callback_map_slock = SRWLOCK_INIT;
+  static int mensagemRecebida(void* op, char* topico, int topico_sz, MQTTAsync_message* msg);
+
+  class Subscribe : public Operacao {
   private:
-    const std::vector<int>    &_qosRequisitados;
+    const std::vector<int>    &_qos_requisitados;
     const std::vector<char *> &_topicos;
 
   public:
-    explicit Subscribe(const std::string &broker_uri, const std::vector<int> &qosRequeridos, const std::vector<char *> &topicos) noexcept :
-    Operacao(broker_uri), _qosRequisitados(qosRequeridos), _topicos(topicos) {}
+    inline explicit Subscribe(MQTTClient &client, const std::vector<int> &qosRequeridos, const std::vector<char *> &topicos) noexcept :
+    Operacao(client), _qos_requisitados(qosRequeridos), _topicos(topicos) {}
     static void falha(void *op, MQTTAsync_failureData *res);
     static void sucesso(void *op, MQTTAsync_successData *res);
   };
 
-  // Callbacks para mensagens recebidas.
-  static int mensagemRecebidaCallback(void* op, char* topico, int topico_sz, MQTTAsync_message* msg);
+  // --- Operação de unsubscribe
+  class Unsubscribe : public Operacao {
+  private:
+    const std::vector<char *> &_topicos;
+
+  public:
+    inline explicit Unsubscribe(MQTTClient &client, const std::vector<char *> &topicos) noexcept : Operacao(client), _topicos(topicos) {}
+    static void falha(void *op, MQTTAsync_failureData *res);
+    static void sucesso(void *op, MQTTAsync_successData *res);
+  };
 
 public:
   explicit MQTTClient(const std::string &broker_uri, const std::string &client_id);
@@ -72,9 +87,7 @@ public:
 
   inline bool conectado() { return _dll.isConnected(_client); }
 
-  bool subscribe(const std::vector<char *> &topicos);
-  inline bool subscribe(const std::string &topico) {
-    std::vector<char *> topicos(1, const_cast<char *>(topico.data()));
-    return subscribe(topicos);
-  }
+  bool subscribe(const std::vector<std::string> &topicos, const std::vector<MQTTAsync_messageArrived *> &callbacks);
+
+  bool unsubscribe(const std::vector<std::string> &topicos);
 };
