@@ -4,4 +4,4 @@ add_library(mqttdll STATIC
 
 target_include_directories(mqtt-test PRIVATE "${SRCDIR}")
 
-install(FILES "libpaho-mqtt3a.dll" DESTINATION bin)
+install(FILES "libpaho-mqtt3a.dll" DESTINATION "install")

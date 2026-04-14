@@ -7,32 +7,32 @@
 class MQTTDll {
 private:
   // Ponteiros para as funções
-  int         (*fptr_create)         (MQTTAsync*, const char*, const char*, int, void*) = NULL;
+  int         (*fptr_create)         (MQTTAsync *, const char*, const char*, int, void*) = NULL;
   void        (*fptr_destroy)        (MQTTAsync *) = NULL;
   int         (*fptr_connect)        (MQTTAsync, const MQTTAsync_connectOptions *) = NULL;
   int         (*fptr_reconnect)      (MQTTAsync) = NULL;
   int         (*fptr_isConnected)    (MQTTAsync) = NULL;
   int         (*fptr_disconnect)     (MQTTAsync, const MQTTAsync_disconnectOptions *) = NULL;
   int         (*fptr_setCallbacks)   (MQTTAsync, void *, MQTTAsync_connectionLost *, MQTTAsync_messageArrived *, MQTTAsync_deliveryComplete *) = NULL;
+  int         (*fptr_setConnected)   (MQTTAsync, void *, MQTTAsync_connected *) = NULL;
   int         (*fptr_subscribe)      (MQTTAsync, const char *, int, MQTTAsync_responseOptions *) = NULL;
-  int         (*fptr_subscribeMany)  (MQTTAsync handle, int count, char *const *topic, const int *qos, MQTTAsync_responseOptions *response) = NULL;
+  int         (*fptr_subscribeMany)  (MQTTAsync, int, char *const *, const int *, MQTTAsync_responseOptions *) = NULL;
   int         (*fptr_unsubscribe)    (MQTTAsync, const char *, MQTTAsync_responseOptions *) = NULL;
-  int         (*fptr_unsubscribeMany)(MQTTAsync handle, int count, char *const *topic, MQTTAsync_responseOptions *response) = NULL;
+  int         (*fptr_unsubscribeMany)(MQTTAsync, int, char *const *, MQTTAsync_responseOptions *) = NULL;
   int         (*fptr_sendMessage)    (MQTTAsync, const char *, const MQTTAsync_message *, MQTTAsync_responseOptions *) = NULL;
   void        (*fptr_freeMessage)    (MQTTAsync_message **) = NULL;
   void        (*fptr_free)           (void *) = NULL;
-  const char *(*fptr_strerror)       (int) = [](int){
-    return "libpaho-mqtt3a.dll não carregada.";
-  };
+  static const char *defaultErrMsg(int) {
+    return "MQTTDll: função não carregada.";
+  }
+  const char *(*fptr_strerror) (int) = defaultErrMsg;
 
   HINSTANCE hDll = NULL;
 
 public:
-  explicit MQTTDll() noexcept = default;
+  explicit MQTTDll() noexcept {};
 
-  void load() noexcept;
-
-  inline bool loaded() const noexcept { return hDll != NULL; }
+  bool load() noexcept;
 
   inline int create(MQTTAsync* handle, const char* serverURI, const char* clientId, int persistence_type, void* persistence_context) const noexcept {
     return fptr_create ? fptr_create(handle, serverURI, clientId, persistence_type, persistence_context) : MQTTASYNC_FAILURE;
@@ -60,6 +60,10 @@ public:
 
   inline int setCallbacks(MQTTAsync handle, void *context, MQTTAsync_connectionLost *cl, MQTTAsync_messageArrived *ma, MQTTAsync_deliveryComplete *dc) const noexcept {
     return fptr_setCallbacks ? fptr_setCallbacks(handle, context, cl, ma, dc) : MQTTASYNC_FAILURE;
+  }
+
+  inline int setConnected(MQTTAsync handle, void *context, MQTTAsync_connected *co) const noexcept {
+    return fptr_setConnected ? fptr_setConnected(handle, context, co) : MQTTASYNC_FAILURE;
   }
 
   inline int subscribe(MQTTAsync handle, const char *topic, int  qos, MQTTAsync_responseOptions *response) const noexcept {
