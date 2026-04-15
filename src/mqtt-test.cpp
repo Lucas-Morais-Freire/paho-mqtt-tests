@@ -8,8 +8,17 @@
 
 int mensagemRecebida(void *, char *topico, int, MQTTAsync_message *msg) {
   std::string res{topico};
-  char * payload = static_cast<char *>(msg->payload);
-  res = res + ": " + payload + '\n';
+  res = res + ": " + std::string((const char*)msg->payload, msg->payloadlen) + '\n';
+  std::cout << res;
+
+  return 1;
+}
+
+int mensagemTruncada(void *, char *topico, int, MQTTAsync_message *msg) {
+  std::string res{topico};
+  std::string payload((const char*)msg->payload, msg->payloadlen);
+  payload.resize(payload.size()/2); 
+  res += std::string(": ") + payload + '\n';
   std::cout << res;
 
   return 1;
@@ -18,29 +27,32 @@ int mensagemRecebida(void *, char *topico, int, MQTTAsync_message *msg) {
 
 
 int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
-  MQTTClient client("tcp://172.30.1.25", "mqtt-test");
-  while (true) {
+  MQTTClient client("tcp://127.0.0.1", "mqtt-test");
 
+  for (size_t i = 0; i < 100; i++) {
     if (!client.conectar()) {
       std::cerr << "Falha ao conectar ao broker.\n";
       return -1;
     }
 
     if (!client.subscribe(
-      std::vector<std::string>{"STATUS/RAMPA_R_0", "STATUS/BOOLEANO_RW_0", "STATUS/INTEIRO_RW_0"},
-      std::vector<MQTTAsync_messageArrived *>(3, mensagemRecebida)
+      std::vector<const char *>{"esp32/topic1", "esp32/topic2", "esp32/topic3"},
+      std::vector<MQTTAsync_messageArrived *>{mensagemRecebida, mensagemTruncada, mensagemRecebida}
     )) {
       std::cerr << "Falha no subscribe\n";
       return -1;
     }
+
+    std::this_thread::sleep_for(std::chrono::duration<int64_t>(1));
     
-    if (!client.unsubscribe(std::vector<std::string>{"STATUS/RAMPA_R_0", "STATUS/BOOLEANO_RW_0"})) {
+    if (!client.unsubscribe(std::vector<const char *>{"esp32/topic1", "esp32/topic2"})) {
       std::cerr << "Falha no unsubscribe\n";
       return -1;
     }
 
+    std::this_thread::sleep_for(std::chrono::duration<int64_t>(1));
     client.desconectar();
-
   }
+  
   return 0;
 }

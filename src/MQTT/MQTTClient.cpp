@@ -81,20 +81,13 @@ void MQTTClient::Connect::falha(void *ctx, MQTTAsync_failureData *res) {
 
 
 
-void MQTTClient::Connect::sucesso(void *ctx, MQTTAsync_successData *res) {
+void MQTTClient::Connect::sucesso(void *ctx, MQTTAsync_successData *) {
   Connect &conexao = *static_cast<Connect *>(ctx);
   MQTTClient &client = conexao._client;
 
   std::cout << "MQTTClient::Connect::sucesso: conexão ao broker em " + client._broker_uri + " bem-sucedida.\n";
 
-  conexao._sessao_presente = res->alt.connect.sessionPresent;
-  if (!conexao._sessao_presente) {
-    AcquireSRWLockExclusive(&client._callback_map_slock);
-    client._callback_map.clear();
-    ReleaseSRWLockExclusive(&client._callback_map_slock);
-  }
   conexao._res = true;
-  conexao._primeira_conexao = false;
   conexao.notificar_um();
 }
 
@@ -130,22 +123,22 @@ int MQTTClient::Connect::mensagemRecebida(void *ctx, char *topico, int topico_sz
 
 
 bool MQTTClient::Connect::despachar() {
-  
   // Não permite mais de uma thread de tentar se (des)conectar ao mesmo tempo.
   std::lock_guard<std::mutex> lock(_client._conexao_mtx);
   if (_client.conectado()) return true;
 
-  if (_primeira_conexao) {
+  if (_primeira_tentativa) {
     int ret = _dll.setCallbacks(_client._handle, this, perdida, mensagemRecebida, NULL);
     if (ret != MQTTASYNC_SUCCESS) {
-      std::cerr << std::string("MQTTClient::Connect::despachar: Erro em setCallbacks(): ") + _dll.strerror(ret) + '\n';
+      std::cerr << std::string("MQTTClient::Connect::despachar: Erro em setCallbacks(): ") + _dll.strerror(ret) + " no broker " + _client._broker_uri + ".\n";
       return false;
     }
+    _primeira_tentativa = false;
   }
 
   int ret = _dll.connect(_client._handle, &_opts);
   if (ret != MQTTASYNC_SUCCESS) {
-    std::cerr << std::string("MQTTClient::conectar: Erro em connect(): ") + _dll.strerror(ret) + '\n';
+    std::cerr << std::string("MQTTClient::conectar: Erro em connect(): ") + _dll.strerror(ret) + " no broker " + _client._broker_uri + ".\n";
     return false;
   }
 
@@ -156,7 +149,7 @@ bool MQTTClient::Connect::despachar() {
 
 // SUBSCRIBE
 
-MQTTClient::Subscribe::Subscribe(MQTTClient *client, const std::vector<std::string> &topicos, const std::vector<MQTTAsync_messageArrived *> &callbacks) noexcept :
+MQTTClient::Subscribe::Subscribe(MQTTClient *client, const std::vector<const char *> &topicos, const std::vector<MQTTAsync_messageArrived *> &callbacks) noexcept :
 Contexto(client), _topicos(topicos), _callbacks(callbacks) {
   _opts.context = this;
   _opts.onFailure = falha;
@@ -171,14 +164,11 @@ bool MQTTClient::Subscribe::despachar() {
     return false;
   }
 
-  std::vector<char *> topicos_char_p; topicos_char_p.reserve(_topicos.size());
-  for (size_t i = 0; i < _topicos.size(); ++i) topicos_char_p.push_back(const_cast<char *>(_topicos[i].data()));
-
   AcquireSRWLockExclusive(&_client._callback_map_slock);
   for (size_t i = 0; i < _topicos.size(); ++i) _client._callback_map.insert({_topicos[i], _callbacks[i]});
   ReleaseSRWLockExclusive(&_client._callback_map_slock);
 
-  int ret = _dll.subscribeMany(_client._handle, (int)_topicos.size(), topicos_char_p.data(), _qos_requisitados.data(), &_opts);
+  int ret = _dll.subscribeMany(_client._handle, (int)_topicos.size(), const_cast<char *const *>(_topicos.data()), _qos_requisitados.data(), &_opts);
   if (ret != MQTTASYNC_SUCCESS) {
     std::string msg = std::string("MQTTClient::Subscribe::despachar: Falha ao se inscrever em tópicos no broker ") + _client._broker_uri +
                       ". Código: " + std::to_string(ret) + ", mensagem: " + _dll.strerror(ret) + '\n';
@@ -220,7 +210,7 @@ void MQTTClient::Subscribe::falha(void *ctx, MQTTAsync_failureData *res) {
 void MQTTClient::Subscribe::sucesso(void *ctx, MQTTAsync_successData *res) {
   Subscribe &subscribe = *static_cast<Subscribe *>(ctx);
   const std::vector<int> &qos_requisitados = subscribe._qos_requisitados;
-  const std::vector<std::string> &topicos = subscribe._topicos;
+  const std::vector<const char *> &topicos = subscribe._topicos;
   MQTTClient &client = subscribe._client;
 
   int *qos_devolvidos;
@@ -255,7 +245,7 @@ void MQTTClient::Subscribe::sucesso(void *ctx, MQTTAsync_successData *res) {
 
 // UNSUBSCRIBE
 
-MQTTClient::Unsubscribe::Unsubscribe(MQTTClient *client, const std::vector<std::string> &topicos) noexcept :
+MQTTClient::Unsubscribe::Unsubscribe(MQTTClient *client, const std::vector<const char *> &topicos) noexcept :
 Contexto(client), _topicos(topicos) {
   _opts.context = this;
   _opts.onFailure = falha;
@@ -265,10 +255,7 @@ Contexto(client), _topicos(topicos) {
 
 
 bool MQTTClient::Unsubscribe::despachar() {
-  std::vector<char *> topicos_char_p; topicos_char_p.reserve(_topicos.size());
-  for (size_t i = 0; i < _topicos.size(); ++i) topicos_char_p.push_back(const_cast<char *>(_topicos[i].data()));
-
-  int ret = _dll.unsubscribeMany(_client._handle, (int)_topicos.size(), topicos_char_p.data(), &_opts);
+  int ret = _dll.unsubscribeMany(_client._handle, (int)_topicos.size(), const_cast<char *const *>(_topicos.data()), &_opts);
   if (ret != MQTTASYNC_SUCCESS) {
     std::string msg = std::string("MQTTClient::unsubscribe: Falha ao se desinscrever em tópicos no broker ") + _client._broker_uri +
                       ". Código: " + std::to_string(ret) + ", mensagem: " + _dll.strerror(ret) + '\n';

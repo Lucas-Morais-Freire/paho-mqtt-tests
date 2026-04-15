@@ -47,13 +47,11 @@ private:
     static const int _RETRY_INTERVAL = 3;      // Caso uma mensagem seja enviada e o PUBACK ou PUBREC seja reconhecido.
     MQTTAsync_connectOptions _opts = MQTTAsync_connectOptions_initializer;
 
-    bool _primeira_conexao = true;
-    bool _sessao_presente = false;
+    bool _primeira_tentativa = true;
 
     static void falha(void *ctx, MQTTAsync_failureData *res);
     static void sucesso(void *ctx, MQTTAsync_successData *res);
     static void perdida(void *ctx, char* cause);
-    static void conectado(void *ctx, char* cause);
     static int mensagemRecebida(void* op, char* topico, int topico_sz, MQTTAsync_message* msg);
   public:
     explicit Connect(MQTTClient *client) noexcept;
@@ -70,7 +68,7 @@ private:
   // --- Gerência de subscribes
   class Subscribe : public Contexto {
   private:
-    const std::vector<std::string> &_topicos;
+    const std::vector<const char *> &_topicos;
     const std::vector<MQTTAsync_messageArrived *> &_callbacks;
     const std::vector<int> _qos_requisitados = std::vector<int>(_topicos.size(), 1);
 
@@ -79,7 +77,7 @@ private:
     static void falha(void *ctx, MQTTAsync_failureData *res);
     static void sucesso(void *ctx, MQTTAsync_successData *res);
   public:
-    explicit Subscribe(MQTTClient *client, const std::vector<std::string> &topicos, const std::vector<MQTTAsync_messageArrived *> &callbacks) noexcept;
+    explicit Subscribe(MQTTClient *client, const std::vector<const char *> &topicos, const std::vector<MQTTAsync_messageArrived *> &callbacks) noexcept;
     ~Subscribe() noexcept {}
     bool despachar();
   };
@@ -87,14 +85,14 @@ private:
   // --- Gerência de unsubscribes
   class Unsubscribe : public Contexto {
   private:
-    const std::vector<std::string> &_topicos;
+    const std::vector<const char *> &_topicos;
 
     MQTTAsync_responseOptions _opts = MQTTAsync_responseOptions_initializer;
 
     static void falha(void *ctx, MQTTAsync_failureData *res);
     static void sucesso(void *ctx, MQTTAsync_successData *res);
   public:
-    explicit Unsubscribe(MQTTClient *client, const std::vector<std::string> &topicos) noexcept;
+    explicit Unsubscribe(MQTTClient *client, const std::vector<const char *> &topicos) noexcept;
     ~Unsubscribe() noexcept {}
     bool despachar();
   };
@@ -123,11 +121,11 @@ public:
 
   inline bool conectado() const { return _dll.isConnected(_handle); }
 
-  inline bool subscribe(const std::vector<std::string> &topicos, const std::vector<MQTTAsync_messageArrived *> &callbacks) {
+  inline bool subscribe(const std::vector<const char *> &topicos, const std::vector<MQTTAsync_messageArrived *> &callbacks) {
     return Subscribe(this, topicos, callbacks).despachar();
   }
 
-  inline bool unsubscribe(const std::vector<std::string> &topicos) {
+  inline bool unsubscribe(const std::vector<const char *> &topicos) {
     return Unsubscribe(this, topicos).despachar();
   }
 
